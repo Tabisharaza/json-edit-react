@@ -95,7 +95,8 @@ def convert_internal_links(text, base_url="https://github.com/CarlosNZ/json-edit
     - [text](file.md#anchor)   -> [text](base_url/blob/main/file.md#anchor)
     - [text](path/to/file.ext) -> [text](base_url/blob/main/path/to/file.ext)
 
-    Absolute URLs (http://, https://, mailto:) and image paths are left untouched.
+    Absolute URI targets (any scheme), protocol/root-relative URLs, and image
+    paths are left untouched. This does not sanitize unsafe link schemes.
 
     Args:
     text (str): The input text containing internal links
@@ -105,7 +106,7 @@ def convert_internal_links(text, base_url="https://github.com/CarlosNZ/json-edit
     str: Text with converted links
     """
     # First pass: rewrite bare anchor links [text](#anchor)
-    anchor_pattern = r'\[([^\]]+)\]\(#([^)]+)\)'
+    anchor_pattern = r'(?<!!)\[([^\]]+)\]\(#([^)]+)\)'
     text = re.sub(
         anchor_pattern,
         lambda m: f'[{m.group(1)}]({base_url}#{m.group(2)})',
@@ -124,8 +125,9 @@ def convert_internal_links(text, base_url="https://github.com/CarlosNZ/json-edit
     def replace_relative(match):
         link_text = match.group(1)
         target = match.group(2)
-        # Skip anything that looks absolute or is a protocol-relative URL
-        if target.startswith(('http://', 'https://', 'mailto:', '//', '/')):
+        # URI schemes are case-insensitive and are not limited to HTTP/mailto.
+        # Match only a scheme at the start, so docs/example:one.md stays relative.
+        if re.match(r'^[A-Za-z][A-Za-z0-9+.-]*:', target) or target.startswith('/'):
             return match.group(0)
         return f'[{link_text}]({base_url}/blob/main/{target})'
 
